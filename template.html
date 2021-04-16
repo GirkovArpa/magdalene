@@ -1,0 +1,26 @@
+<html>
+
+  <head>
+    <title>Form1</title>
+    <style>
+    </style>
+    <script type="module">
+      import { $, $$ } from '@sciter';
+
+      adjust_window();
+
+      function adjust_window() {
+        const window_width = 400;
+        const window_height = 300;
+        const [screen_width, screen_height] = Window.this.screenBox('frame', 'dimension');
+        const x = (screen_width - window_width) / 2;
+        const y = (screen_height - window_height) / 2;
+        Window.this.move(x, y, window_width, window_height);
+      }
+    </script>
+  </head>
+
+  <body>
+  </body>
+
+</html>

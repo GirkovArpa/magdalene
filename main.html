@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+
+    <title>Magdalene - WYSIWYG IDE for Sciter.JS</title>
+    <style>
+      body {
+        margin: 0;
+      }
+
+      div.toolbar {
+        flow: horizontal;
+        background: white;
+      }
+
+      .toolbar input[type="radio"] {
+        display: none;
+      }
+
+      .toolbar label {
+        width: 48px;
+        height: 48px;
+        background-repeat: no-repeat;
+        background-size: 75%;
+        background-position: 50% 50%;
+        box-sizing: border-box;
+      }
+
+      .toolbar :active+label {
+        background-color: #1f94ca !important;
+      }
+
+      .toolbar :hover+label,
+      .toolbar :checked+label {
+        background-color: #DDECFF;
+        border: 1px solid #26A0DA;
+      }
+
+      #select+label {
+        background-image: url('select.png');
+      }
+
+      #button+label {
+        background-image: url('button.png');
+      }
+
+      #edit+label {
+        background-image: url('edit.png');
+      }
+    </style>
+    <script defer type="module">
+      main();
+
+      function main() {
+        adjust_window();
+        const inspector = display_inspector();
+        const form = create_form();
+        const source_editor = display_source_editor();
+        inspector.parameters.form = form;
+        form.parameters.inspector = inspector;
+        form.parameters.source_editor = source_editor;
+      }
+
+      function adjust_window() {
+        const [screen_width] = Window.this.screenBox('frame', 'dimension');
+        Window.this.move(0, 0, screen_width, 48, true);
+        Window.this.move(0, 0, true);
+      }
+
+      function display_inspector() {
+        const screen_height = Window.this.screenBox('workarea', 'height');
+        const inspector = new Window({
+          parent: Window.this,
+          url: 'inspector.html',
+          state: Window.WINDOW_SHOWN,
+          type: Window.TOOL_WINDOW,
+          width: 400,
+          height: screen_height - 48,
+          left: 0,
+          alignment: 1,
+          client: false,
+          parameters: {
+            parent: Window.this
+          }
+        });
+        return inspector;
+      }
+
+      function create_form() {
+        const form = new Window({
+          parent: Window.this,
+          url: 'form.html',
+          state: Window.WINDOW_SHOWN,
+          width: 400,
+          height: 300,
+          parameters: {
+            parent: Window.this
+          }
+        });
+        return form;
+      }
+
+      function display_source_editor() {
+        const screen_height = Window.this.screenBox('workarea', 'height');
+        const source_editor = new Window({
+          parent: Window.this,
+          url: 'source_editor.html',
+          state: Window.WINDOW_SHOWN,
+          width: 400,
+          height: screen_height - 48,
+          alignment: 3,
+          parameters: {
+            parent: Window.this
+          }
+        });
+        return source_editor;
+      }
+    </script>
+  </head>
+
+  <body>
+    <div .toolbar>
+      <input type="radio" name="toolbar" id="select" checked>
+      <label for="select"></label>
+      <input type="radio" name="toolbar" id="button">
+      <label for="button"></label>
+      <!--<input type="radio" name="toolbar" id="edit">
+      <label for="edit"></label>-->
+    </div>
+  </body>
+
+</html>

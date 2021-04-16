@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+
+    <title>Object Inspector</title>
+    <link href="tabs.css" rel="stylesheet">
+    <style>
+      body {
+        background-color: #F0F0F0;
+        margin: 0;
+        padding: 5dip;
+        border-spacing: 5dip;
+      }
+
+      select|tree {
+        display: block;
+        width: *;
+        height: 300dip;
+        font: system;
+      }
+
+      option:not(:node) {
+        list-marker-style: dotted;
+      }
+
+      caption {
+        height: 32dip;
+        line-height: 32dip;
+      }
+
+      caption::before {
+        content: '';
+        hit-margin: -999;
+        width: 32dip;
+        height: 32dip;
+        padding-right: 8dip;
+        background-repeat: no-repeat;
+        background-size: 32dip 32dip;
+        background-position: 50% 50%;
+        display: inline-block;
+      }
+
+      option.form>caption::before {
+        background-image: url(object-inspector/form.png);
+      }
+
+      option.control>caption::before {
+        background-image: url(object-inspector/control.png);
+      }
+
+      section {
+        overflow-y: scroll;
+      }
+
+      select|list {
+        display: block;
+        flow: table;
+
+        height: max-content;
+        width: *;
+
+        padding: 0;
+        border-collapse: collapse;
+        border: 1dip solid grey;
+
+        background: #F0F0F0;
+        ;
+      }
+
+      select|list option {
+        flow: table-row;
+        background: #F0F0F0;
+      }
+
+      select|list option:current span:first-child,
+      select|list option.parent span:first-child {
+        background-color: #F0F0F0;
+        ;
+        background-image: url(arrow_right.png);
+        background-repeat: no-repeat;
+        background-position: 50% 50%;
+        background-size: 50% 50%;
+        filter: hue-rotate(100deg);
+      }
+
+      select|list option:current span:last-child {
+        background-color: white !important;
+      }
+
+      select|list option.parent span:first-child {
+        background-image: url(path: M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z);
+        background-size: 33% 50%;
+        stroke: grey;
+      }
+
+      select|list option.parent.expanded span:first-child {
+        transform: rotate(90deg);
+      }
+
+      select|list option.child span:first-child {
+        background-position: 100% 50%;
+      }
+
+      select|list option.child span:nth-child(2) {
+        transform: translate(1em, 0);
+        border-right-width: 0;
+      }
+
+      select|list option.child span:last-child {
+        border-left: 1dip solid grey;
+        background: #F0F0F0;
+        transform: translate(-1dip, 0);
+      }
+
+      select|list option.child.hidden {
+        display: none;
+      }
+
+      select|list option span {
+        padding: 4dip 8dip;
+        size: *;
+      }
+
+      select|list option span:first-child {
+        width: 1em;
+        behavior: clickable;
+      }
+
+      select|list option:current span:nth-child(2) {
+        color: white;
+        background: #0078D7;
+      }
+
+      select|list option span:not(:first-child) {
+        width: *;
+        overflow-x: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        border: 1dip solid grey;
+        border-bottom-style: dashed;
+        border-top-width: 0dip;
+      }
+
+      select|list span.textbox {
+        display: block;
+        behavior: edit;
+        white-space: pre;
+        flow: text;
+        overflow-x: hidden-scroll;
+        cursor: text;
+      }
+    </style>
+    <script defer type="module" src="tabs.js"></script>
+    <script defer type="module" src="select-list.js"></script>
+    <script defer type="module">
+      import { $ } from '@sciter';
+      const PARENT = Window.this.parameters.parent.document;
+
+      document.selectComponent = function (element) {
+        if (element.tag === 'button') {
+          showProperties(element, 'button');
+          $(`select|tree option[value="${element.id}"]`).click();
+        }
+      }
+
+      document.updateFormDimensions = function () {
+        const select = $('select|list.form');
+        if (select === null) { return };
+        const { form } = Window.this.parameters;
+        const w = form.box('width', 'border');
+        const h = form.box('height', 'border');
+        const list_prop_width = select.$('option[value="width"]');
+        list_prop_width.$('span:last-child').value = w;
+        const list_prop_height = select.$('option[value="height"]');
+        list_prop_height.$('span:last-child').value = h;
+      }
+
+      document.updateComponentDimensions = function (element) {
+        if (element.tag === 'button') {
+          const list_prop_width = $('select|list option[value="width"]');
+          list_prop_width.$('span:last-child').value = element.style.width;
+
+          const list_prop_height = $('select|list option[value="height"]');
+          list_prop_height.$('span:last-child').value = element.style.height;
+        }
+      }
+
+      document.on('click', async function ({ target }) {
+        if (target.tag === 'caption') {
+          if (target.parentElement.classList.contains('form')) {
+            showProperties(target, 'form');
+            return;
+          }
+          if (target.parentElement.classList.contains('button')) {
+            const id = target.parentElement.value;
+            const element = Window.this.parameters.form.document.$('#' + id);
+            showProperties(element, 'button');
+          }
+          const id = target.parentElement.value;
+          const selected = Window.this.parameters.form.document.$('.selected');
+          if (selected !== null) {
+            selected.classList.remove('selected');
+          }
+          const element = Window.this.parameters.form.document.$('#' + id);
+          element.classList.add('selected');
+        }
+      });
+
+      function showProperties(element, type = null) {
+        if (type === 'form') {
+          const { form } = Window.this.parameters;
+          const FORM = {
+            caption: form.caption,
+            width: form.box('width', 'border'),
+            height: form.box('height', 'border'),
+          }
+
+          const section = $('section(properties)');
+          section.innerHTML = '';
+          section.append(<select type="list" class="form">
+            <option value="caption">
+              <span></span>
+              <span>Caption</span>
+              <span class="textbox">{FORM.caption}</span>
+            </option>
+            <option class="parent">
+              <span></span>
+              <span>Dimensions</span>
+              <span>[Width, Height]</span>
+            </option>
+            <option value="width" class="child hidden">
+              <span></span>
+              <span>Width</span>
+              <span class="textbox">{FORM.width}</span>
+            </option>
+            <option value="height" class="child hidden">
+              <span></span>
+              <span>Height</span>
+              <span class="textbox">{FORM.height}</span>
+            </option>
+          </select>);
+
+          $('select|list').on('input', '.textbox', function (_, { textContent, parentElement: { value } }) {
+            if (value === 'caption') {
+              form.caption = textContent;
+            }
+            if (value === 'width') {
+              const [x, y, w, h] = form.box('rectw', 'border', 'screen');
+              form.move(x, y, textContent, h, false);
+            }
+            if (value === 'height') {
+              const [x, y, w, h] = form.box('rectw', 'border', 'screen');
+              form.move(x, y, w, textContent, false);
+            }
+          });
+        }
+
+        if (type === 'button') {
+          const button = element;
+          const BUTTON = {
+            caption: button.attributes.caption,
+            width: button.style.width,
+            height: button.style.height
+          }
+
+          const section_props = $('section(properties)');
+          section_props.innerHTML = '';
+          section_props.append(<select type="list">
+            <option value="caption">
+              <span></span>
+              <span>Caption</span>
+              <span class="textbox">{BUTTON.caption}</span>
+            </option>
+            <option class="parent">
+              <span></span>
+              <span>Dimensions</span>
+              <span>[Width, Height]</span>
+            </option>
+            <option value="width" class="child hidden">
+              <span></span>
+              <span>Width</span>
+              <span class="textbox">{BUTTON.width}</span>
+            </option>
+            <option value="height" class="child hidden">
+              <span></span>
+              <span>Height</span>
+              <span class="textbox">{BUTTON.height}</span>
+            </option>
+          </select>);
+
+          const section_evts = $('section(events)');
+          section_evts.innerHTML = '';
+          section_evts.append(<select type="list">
+            <option value="click">
+              <span></span>
+              <span>OnClick</span>
+              <span class="textbox"></span>
+            </option>
+          </select>);
+
+          $('section(events) option').on('click', function (_, el) {
+            const option = el.tag != 'option' ? el.parentElement : el;
+            
+          });
+
+          $('select|list').on('input', '.textbox', function (_, { textContent, parentElement: { value } }) {
+            if (value === 'caption') {
+              button.attributes.caption = textContent;
+            }
+            if (value === 'width') {
+              button.style.width = textContent;
+            }
+            if (value === 'height') {
+              button.style.height = textContent;
+            }
+          });
+        }
+      }
+    </script>
+  </head>
+
+  <body>
+    <select type="tree" size=32 treelines>
+      <option expanded value="Form1" .form>
+        <caption>Form1</caption>
+      </option>
+    </select>
+
+    <tabs #test>
+      <strip>
+        <label for=properties>Properties</label>
+        <label for=events>Events</label>
+      </strip>
+      <panels>
+        <section (properties)>
+          <select |list>
+          </select>
+
+        </section>
+        <section (events)>
+          Events
+
+        </section>
+      </panels>
+    </tabs>
+  </body>
+
+</html>

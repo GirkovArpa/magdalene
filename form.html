@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+
+    <title>Form1</title>
+    <style>
+      body {
+        background-color: #F0F0F0;
+        background-image: url('pixel.png');
+        background-size: 10dip 10dip;
+        margin: 0;
+        position: relative;
+      }
+
+      div.select-rect {
+        position: absolute;
+        border: 1dip dotted black;
+        display: none;
+        z-index: 2;
+      }
+
+      .edit {
+        /*position: absolute;*/
+        /*box-sizing: border-box;*/
+        border-radius: unset;
+        outline: 2dip dashed black;
+      }
+
+      .button
+
+      /*,
+      .edit*/
+        {
+        behavior: unset;
+        position: absolute;
+        box-sizing: border-box;
+      }
+
+      .button:not(:hover)>.resizer
+
+      /*,
+      .edit:not(:hover)>.resizer*/
+        {
+        display: none;
+      }
+
+      .button:hover,
+      .button.selected
+
+      /*,
+      .edit:hover,
+      .edit.selected */
+        {
+        border-radius: unset;
+        outline: 2dip dashed black;
+      }
+
+      .button::before {
+        hit-margin: -999;
+        content: attr(caption);
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        vertical-align: middle;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    </style>
+    <script defer type="module">
+      import { $, $$ } from '@sciter';
+      import resizer from './resizer.js';
+
+      const PARENT = Window.this.parameters.parent;
+
+      Window.this.on('size', function (evt) {
+        Window.this.parameters.inspector?.document.updateFormDimensions();
+      });
+
+      document.on('mousedown', function ({ x, y, target }) {
+        if (target.tag === 'button' || target.tag === 'edit' || target.tag === 'body') {
+          const selected = $('.selected');
+          if (selected !== target) {
+            Window.this.parameters.inspector.document.selectComponent(target);
+          }
+          if (selected !== null) {
+            selected.classList.remove('selected');
+          }
+          target.classList.add('selected');
+        }
+        if ($('[resizing="true"]')) {
+          return;
+        }
+        const toolbar_selection = PARENT.document.$('[name="toolbar"]:checked').id;
+        if ((target.tag === 'button' || target.tag === 'edit') && toolbar_selection === 'select') {
+          const { left, top } = target.style;
+          const x_relative = x - Number(left.match(/\d+/));
+          const y_relative = y - Number(top.match(/\d+/));
+          target.attributes.cursor_x = x_relative;
+          target.attributes.cursor_y = y_relative;
+          target.attributes.dragging = true;
+          target.state.capture(true);
+          return;
+        }
+        $('.select-rect').style.display = 'block';
+        $('.select-rect').style.left = x;
+        $('.select-rect').style.top = y;
+        $('.select-rect').style.width = 0;
+        $('.select-rect').style.height = 0;
+      });
+
+      document.on('mousemove', function ({ x, y, target }) {
+        if ($('[resizing="true"]')) {
+          return;
+        }
+        const toolbar_selection = PARENT.document.$('[name="toolbar"]:checked').id;
+        if (target.tag === 'button' || target.tag === 'edit') {
+          if (toolbar_selection === 'select') {
+            target.style.cursor = 'move';
+          } else {
+            target.style.cursor = 'unset';
+          }
+        }
+        if (toolbar_selection === 'select' && (target.tag === 'button' || target.tag === 'edit') && target.attributes.dragging === 'true') {
+          const { cursor_x, cursor_y } = target.attributes;
+          const left = (x - Number(cursor_x)) + 'dip';
+          const top = (y - Number(cursor_y)) + 'dip';
+          target.style.left = left;
+          target.style.top = top;
+        }
+        if ($('.select-rect').style.display !== 'block') { return };
+        const left = Number($('.select-rect').style.left.match(/\d+/));
+        const top = Number($('.select-rect').style.top.match(/\d+/));
+        const width = (x - left) + 'dip';
+        const height = (y - top) + 'dip';
+        $('.select-rect').style.width = width;
+        $('.select-rect').style.height = height;
+      });
+
+      document.on('mouseup', function ({ target }) {
+        if ($('[resizing="true"]')) {
+          return;
+        }
+        if (target.tag === 'button' || target.tag === 'edit') {
+          target.attributes.dragging = false;
+          target.state.capture(false);
+          return;
+        }
+        $('.select-rect').style.display = 'none';
+        const toolbar_selection = PARENT.document.$('[name="toolbar"]:checked').id;
+        if (toolbar_selection === 'button' || toolbar_selection === 'edit') {
+          const { left, top, width, height } = $('.select-rect').style;
+          const style = `
+            left: ${left};
+            top: ${top};
+            width: ${width};
+            height: ${height}`;
+          const tag = toolbar_selection; //button or edit
+          //const id = '_' + String(Math.random() * 9999).replace('.', '');
+          const number = $$(tag.replace('edit', 'input|text')).length;
+          const id = `${tag}${number}`;
+          const caption = `${tag.replace(/./, (c) => c.toUpperCase())}${number}`;
+          if (tag === 'button') {
+            document.body.append(<button id={id} style={style} caption={caption} class="button"></button>);
+          } else if (tag === 'edit') {
+            document.body.append(<input type="text" id={id} style={style} caption={caption} class="edit" />);
+          }
+          resizer('#' + id);
+
+          const classList = ['control', tag].join(' ');
+          Window.this.parameters.inspector.document.$('select > option').append(
+            <option value={id} class={classList}>
+              <caption>{tag.replace(/./, (c) => c.toUpperCase())}{number}</caption>
+            </option>
+          );
+          const TAB = ' '.repeat(6);
+          const TABTAB = ' '.repeat(8);
+          const source_code = Window.this.parameters.source_editor.document.$('plaintext').value;
+          if (tag === 'button') {
+            const new_source_code = source_code
+              .replace('</body>', `\t<button #${id}>${caption}</button>\n</body>`)
+              .replace('</style>', `  #${id} {\n${TABTAB}position: absolute;\n${TABTAB}box-sizing: border-box;${TABTAB}${style.replace(/ {2,}/g, `${TABTAB}`)}\n${TAB}}\n    </style>`);
+            Window.this.parameters.source_editor.document.$('plaintext').value = new_source_code;
+          } else if (tag === 'edit') {
+            const new_source_code = source_code
+              .replace('</body>', `<input |text #${id} />\n${TAB}</body>`)
+              .replace('</style>', `  #${id} {\n${TABTAB}position: absolute;\n${TABTAB}box-sizing: border-box;${TABTAB}${style.replace(/ {2,}/g, `${TABTAB}`)}\n${TAB}}\n    </style>`);
+            Window.this.parameters.source_editor.document.$('plaintext').value = new_source_code;
+          }
+        }
+      });
+    </script>
+  </head>
+
+  <body toolbar-selection="select">
+    <div .select-rect></div>
+  </body>
+
+</html>

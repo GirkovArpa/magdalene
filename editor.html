@@ -1,0 +1,19 @@
+<html>
+
+  <head>
+    <title>Source Editor</title>
+    <style>
+      @import url(source_editor.css);
+    </style>
+    <script>
+      fetch(document.url()).then(function (resp) {
+        document.$('plaintext').value = resp.text();
+      });
+    </script>
+  </head>
+
+  <body>
+    <plaintext type="text/html" spaces-per-tab=2></plaintext>
+  </body>
+
+</html>
